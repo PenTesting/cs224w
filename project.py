@@ -7,6 +7,7 @@ import snap
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import pandas as pd
 from datetime import datetime
 
 def read_json_file(filename="price_data_raw.json"):
@@ -63,8 +64,72 @@ def print_summary_price_stats(price_data):
     print 'max_price: %f' % max_price
     print 'min_price: %f' % min_price
 
+def combine_datasets(price_data, results):
+    exchanges = list()
+    amount_dict = dict()
+    prices = list()
+    first_pass = True
+    for exch, dataset in results.items():
+        exchanges.append(exch)
+        inds = list()
+        amounts = list()
+        for datapoint in dataset:
+            inds.append(pd.Timestamp(datapoint[0][:10]))
+            amounts.append(datapoint[1])
+            if first_pass:
+                prices.append(price_data['bpi'][datapoint[0][:10]])
+        amount_dict[exch] = amounts
+        first_pass = False
+
+    amount_dict['price'] = prices
+    df = pd.DataFrame.from_dict(amount_dict)
+    df['date'] = inds
+    df.set_index('date')
+
+    return df, exchanges
+
+def save_dataframe(df, filename):
+    df.to_csv(filename)
+
+def load_dataframe(filename):
+    df = pd.read_csv(filename, index_col=0)
+    return df
+
+def plot_data(df, exchanges, savefile=None, show=True):
+    df1 = df.set_index(pd.DatetimeIndex(df['date']))
+    ax1 = df1[exchanges].plot()
+    plt.legend(loc=2, prop={'size': 6})
+
+    ax2 = ax1.twinx()
+    df1['price'].plot(secondary_y=True, linewidth=1.5, style=['r--'])
+    plt.legend(loc=1, prop={'size': 6})
+
+    plt.title('Bitcoin assets over time from 2017-01-01 to 2018-11-26')
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel('Amount in assets')
+    ax2.set_ylabel('Bitcoin Price in USD')
+
+    if savefile:
+        plt.savefig(savefile)
+    if show:
+        plt.show()
+
 if __name__ == "__main__":
-    price_data = read_json_file()
+    price_data = read_json_file('price_data_updated_raw.json')
     # write_json_file(price_data)
+    addresses = read_json_file('addresses_raw.json')
+    # write_json_file(addresses, 'addresses.json')
+    results = read_json_file('results_raw.json')
+    # write_json_file(results, 'results.json')
+    
     # plot_price_data(price_data, savefile='prices.png', show=False)
-    print_summary_price_stats(price_data)
+    # print_summary_price_stats(price_data)
+
+    df, exchanges = combine_datasets(price_data, results)
+    save_dataframe(df, 'combined_data.csv')
+    df = load_dataframe('combined_data.csv')
+    try:
+        exchanges
+    except NameError:
+        exchanges = addresses.keys() 
+    plot_data(df, exchanges, savefile='price_asset.png', show=True)
