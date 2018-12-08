@@ -49,6 +49,7 @@ def plot_price_data(price_data, savefile=None, show=True):
         plt.savefig(savefile)
     if show:
         plt.show()
+    plt.clf()
 
 def print_summary_price_stats(price_data):
     _, prices = get_sorted_prices(price_data['bpi'])
@@ -84,7 +85,6 @@ def combine_datasets(price_data, results):
     amount_dict['price'] = prices
     df = pd.DataFrame.from_dict(amount_dict)
     df['date'] = inds
-    df.set_index('date')
 
     return df, exchanges
 
@@ -96,12 +96,11 @@ def load_dataframe(filename):
     return df
 
 def plot_data(df, exchanges, savefile=None, show=True):
-    df1 = df.set_index(pd.DatetimeIndex(df['date']))
-    ax1 = df1[exchanges].plot()
+    ax1 = df[exchanges].plot()
     plt.legend(loc=2, prop={'size': 6})
 
     ax2 = ax1.twinx()
-    df1['price'].plot(secondary_y=True, linewidth=1.5, style=['r--'])
+    df['price'].plot(secondary_y=True, linewidth=1.5, style=['r--'])
     plt.legend(loc=1, prop={'size': 6})
 
     plt.title('Bitcoin assets over time from 2017-01-01 to 2018-11-26')
@@ -113,13 +112,58 @@ def plot_data(df, exchanges, savefile=None, show=True):
         plt.savefig(savefile)
     if show:
         plt.show()
+    plt.clf()
+
+def diff_rows(df, periods):
+    df_diff = df.diff(periods=periods).dropna()
+    return df_diff
+
+def plot_diffs(df, exchanges, periods=1, savefile=None, show=True):
+    df_diff = diff_rows(df, periods)
+    
+    ax1 = df_diff[exchanges].plot()
+    plt.legend(loc=2, prop={'size': 6})
+
+    ax2 = ax1.twinx()
+    df_diff['price'].plot(secondary_y=True, linewidth=1.5, style=['r--'])
+    plt.legend(loc=1, prop={'size': 6})
+
+    plt.title('Bitcoin assets diff over period %d days' % periods)
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel('Difference in assets')
+    ax2.set_ylabel('Bitcoin Price Difference in USD')
+
+    if savefile:
+        plt.savefig(savefile)
+    if show:
+        plt.show()
+    plt.clf()
+
+def correlate_exch_price(df, exchanges):
+    correlations = dict()
+    for exch in exchanges:
+        correlations[exch] = df[exch].corr(df['price'])
+    return correlations
+
+def correlate_diff_exch_price(df, exchanges, periods=[1]):
+    correlations = dict()
+    
+    for exch in exchanges:
+        corr_list = list()
+        for period in periods:
+            df_diff = diff_rows(df, period)
+            corr_list.append(df_diff[exch].corr(df_diff['price']))
+        correlations[exch] = corr_list
+    return correlations
 
 if __name__ == "__main__":
     price_data = read_json_file('price_data_updated_raw.json')
     # write_json_file(price_data)
     addresses = read_json_file('addresses_raw.json')
+    addresses.pop('top_address_7')
     # write_json_file(addresses, 'addresses.json')
     results = read_json_file('results_raw.json')
+    results.pop('top_address_7')
     # write_json_file(results, 'results.json')
     
     # plot_price_data(price_data, savefile='prices.png', show=False)
@@ -128,8 +172,42 @@ if __name__ == "__main__":
     df, exchanges = combine_datasets(price_data, results)
     save_dataframe(df, 'combined_data.csv')
     df = load_dataframe('combined_data.csv')
+
+    # convert date field to datetime, useful for plotting nicely
+    df['date'] = pd.to_datetime(df['date'])
+    df.set_index('date', inplace=True)
     try:
         exchanges
     except NameError:
         exchanges = addresses.keys() 
-    plot_data(df, exchanges, savefile='price_asset.png', show=True)
+
+    plot_data(df, exchanges, savefile='price_asset.png', show=False)
+
+    periods = [1, 7, 14, 30, 120, 180, 365]
+    for period in periods:
+        savefile = 'price_asset_diff_period_%d.png' % period
+        plot_diffs(df, exchanges, periods=period, savefile=savefile, show=False)
+
+    print
+    corr = correlate_exch_price(df, exchanges)
+    print 'Correlations on raw data:'
+    for k, v in corr.iteritems():
+        print(k),
+        if (len(k) < 7):
+            print ('\t'),
+        print '\t%1.4f' % (v)
+
+    print
+    corr = correlate_diff_exch_price(df, exchanges, periods)
+    print('Diff Correlations')
+    print('Name\t\t\t'),
+    print('\t'.join(map(str,periods)))
+    for k, v in corr.iteritems():
+        print(k),
+        if (len(k) < 7):
+            print ('\t'),
+        print('\t\t'),
+        for val in v:
+            print('%1.4f\t' % val),
+        print
+
