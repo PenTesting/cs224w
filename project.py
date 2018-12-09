@@ -10,13 +10,13 @@ import matplotlib.dates as mdates
 import pandas as pd
 from datetime import datetime
 
-def read_json_file(filename="price_data_raw.json"):
+def read_json_file(filename="data/price_data_raw.json"):
     read_file = open(filename, "r")
     data = json.load(read_file)
     read_file.close()
     return data
 
-def write_json_file(data, filename="price_data.json"):
+def write_json_file(data, filename="output/price_data.json"):
     write_file = open(filename, "w")
     json.dump(data, write_file, indent=4)
     write_file.close()
@@ -157,21 +157,21 @@ def correlate_diff_exch_price(df, exchanges, periods=[1]):
     return correlations
 
 if __name__ == "__main__":
-    price_data = read_json_file('price_data_updated_raw.json')
-    # write_json_file(price_data)
-    addresses = read_json_file('addresses_raw.json')
+    price_data = read_json_file('data/price_data_updated_raw.json')
+    write_json_file(price_data, 'output/price_data_updated.json')
+    addresses = read_json_file('data/addresses_raw.json')
     addresses.pop('top_address_7')
-    # write_json_file(addresses, 'addresses.json')
-    results = read_json_file('results_raw.json')
+    write_json_file(addresses, 'output/addresses.json')
+    results = read_json_file('data/results_raw.json')
     results.pop('top_address_7')
-    # write_json_file(results, 'results.json')
+    write_json_file(results, 'output/results.json')
     
-    # plot_price_data(price_data, savefile='prices.png', show=False)
-    # print_summary_price_stats(price_data)
+    plot_price_data(price_data, savefile='output/prices.png', show=False)
+    print_summary_price_stats(price_data)
 
     df, exchanges = combine_datasets(price_data, results)
-    save_dataframe(df, 'combined_data.csv')
-    df = load_dataframe('combined_data.csv')
+    save_dataframe(df, 'output/combined_data.csv')
+    df = load_dataframe('output/combined_data.csv')
 
     # convert date field to datetime, useful for plotting nicely
     df['date'] = pd.to_datetime(df['date'])
@@ -181,11 +181,11 @@ if __name__ == "__main__":
     except NameError:
         exchanges = addresses.keys() 
 
-    plot_data(df, exchanges, savefile='price_asset.png', show=False)
+    plot_data(df, exchanges, savefile='output/price_asset.png', show=False)
 
     periods = [1, 7, 14, 30, 120, 180, 365]
     for period in periods:
-        savefile = 'price_asset_diff_period_%d.png' % period
+        savefile = 'output/price_asset_diff_period_%d.png' % period
         plot_diffs(df, exchanges, periods=period, savefile=savefile, show=False)
 
     print
