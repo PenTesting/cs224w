@@ -128,7 +128,7 @@ def plot_diffs(df, exchanges, periods=1, savefile=None, show=True):
     df_diff['price'].plot(secondary_y=True, linewidth=1.5, style=['r--'])
     plt.legend(loc=1, prop={'size': 6})
 
-    plt.title('Bitcoin assets diff over period %d days' % periods)
+    plt.title('Bitcoin assets difference over period %d days' % periods)
     ax1.set_xlabel('Date')
     ax1.set_ylabel('Difference in assets')
     ax2.set_ylabel('Bitcoin Price Difference in USD')
@@ -155,6 +155,21 @@ def correlate_diff_exch_price(df, exchanges, periods=[1]):
             corr_list.append(df_diff[exch].corr(df_diff['price']))
         correlations[exch] = corr_list
     return correlations
+
+def plot_corr_diff(corr, periods, savefile=None, show=True):
+    corr_df = pd.DataFrame.from_dict(corr)
+
+    corr_df.set_index([[str(x) for x in periods]]).plot()
+    plt.legend(loc=2, prop={'size': 6})
+    plt.title('Pearson Correlation versus period')
+    plt.xlabel('Period (days)')
+    plt.ylabel('Pearson Correlation value')
+
+    if savefile:
+        plt.savefig(savefile)
+    if show:
+        plt.show()
+    plt.clf()
 
 if __name__ == "__main__":
     price_data = read_json_file('data/price_data_updated_raw.json')
@@ -210,4 +225,6 @@ if __name__ == "__main__":
         for val in v:
             print('%1.4f\t' % val),
         print
+
+    plot_corr_diff(corr, periods, savefile='output/corr_diff.png', show=False)
 
